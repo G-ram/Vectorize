@@ -8,4 +8,5 @@ setup(
     description='Creates vector representations of raster images'
     long_description=open('README').read(),
     install_requires=[],
+    test_suite = 'nose.collector',
 )
