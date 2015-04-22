@@ -1,3 +1,5 @@
+Mako==1.0.1
+MarkupSafe==0.23
 appdirs==1.4.0
 decorator==3.4.2
 numpy==1.9.2
