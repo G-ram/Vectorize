@@ -1,18 +1,28 @@
 #ifndef __STRUCT_H__
 #define __STRUCT_H__
-struct pixel{
+
+struct pixel {
 	int r;
 	int g;
 	int b;
-	int i;
 };
-struct region{
-	thrust::device_vector<pixel> pixels;
+
+struct frame {
+	thrust::device_vector<pixel> data;
+	int height;
+	int width;
+}
+
+struct regions {
+	thrust::device_vector<unsigned int> regionNumbers;
+	int height;
+	int width;
 };
-struct edge{
+
+struct edge {
 	region r1;
 	region r2;
 	float mag;
 };
-#endif
 
+#endif
