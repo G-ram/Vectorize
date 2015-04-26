@@ -12,9 +12,9 @@ class Video{
 	cv::Mat currentFrame;
 	public:
 		Video(const string aFilePath);
-		int fh(){return h;}
-		int fw(){return w;}
-		int getFrameCount(){return currentFrameCount;}
+		int getHeight() { return h; }
+		int getWidth() { return w; }
+		int getFrameCount() { return currentFrameCount; }
 		bool hasNext();
 		uchar* next();
 };
