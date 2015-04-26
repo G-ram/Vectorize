@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include "video.h"
 #include "struct.h"
 #include "srm.cuh"
-__global__ void setup(uchar* rawPixels, region* regions, int w, int h){
+__global__ void setup(uchar* rawPixels, thrust::device_vector<region>& regions, int w, int h){
 	int x = blockDim.x*blockIdx.x+threadIdx.x;
 	int y = blockDim.y*blockIdx.y+threadIdx.y;
 	int i = 3*w*y+3*x;
@@ -21,8 +23,8 @@ int main(int argc, char** argv ){
 		return -1;
 	}
 	Video video = Video(argv[1]);
-	while(video.next() != NULL){
-
+	while(video.hasNext()){
+		
 	}
 	return 0;
 }

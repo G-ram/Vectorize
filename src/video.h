@@ -9,11 +9,13 @@ class Video{
 	int h;
 	int currentFrameCount;
 	cv::VideoCapture cap;
+	cv::Mat currentFrame;
 	public:
 		Video(const string aFilePath);
 		int fh(){return h;}
 		int fw(){return w;}
 		int getFrameCount(){return currentFrameCount;}
+		bool hasNext();
 		uchar* next();
 };
 #endif

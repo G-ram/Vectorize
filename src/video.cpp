@@ -6,10 +6,10 @@ Video::Video(const string aFilePath){
 	w = cap.get(CV_CAP_PROP_FRAME_WIDTH);
 	h = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
 }
+bool Video::hasNext(){
+	return cap.read(currentFrame);
+}
 uchar* Video::next(){
-	cv::Mat frame;
-	bool success = cap.read(frame); 
-	if(!success){return NULL;}
-	return frame.data;
+	return currentFrame.data;
 }
 
