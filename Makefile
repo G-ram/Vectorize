@@ -1,4 +1,4 @@
-PROGRAM_NAME := test
+PROGRAM_NAME := vectorize
 NVCC = /usr/local/cuda-7.0/bin/nvcc
 
 program_CXX_SRCS := $(wildcard src/*.cpp)
