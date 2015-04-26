@@ -1,10 +1,35 @@
 #include "srm.cuh"
+
 #define Q 32
-__host__ __device__ int max3(int x,int y, int z){ 
-         int max = x>=y?x:y;
-         return max>=z?max:z;
-}   
-__global__ void srm1(region* regions, edge* pairs, int w, int numOfPixels){
+
+struct edge_functor(){
+	region currentRegion;
+	edge_functor(){}
+	__host__ __device__
+	edge operator()(const frame& frame, int idx){
+		return ;
+	}
+}
+struct sort_edges{
+	__host__ __device__
+	bool operator()(const edge& e1, const edge& e2) {
+		return e1.mag < e2.mag;
+	}
+}
+regions SRM(thrust::device_vector<frame> frames){
+	int i;
+	thrust::host_vector<thrust::raw_pointer<edge>> hEdges(frames.size());
+	for(i = 0; i < frames.size(); i++){
+		hEdges = thrust::raw_pointer_cast(new thrust::device_vector<edge>(2*frames[0].w*frames[0]).data();
+	}
+	thrust::device_vector<thrust::raw_pointer<edge>> dEdges = hEdges;
+	thrust::transform(frames.begin(),frames.end(),dEdges.begin,dEdges.end(),edge_functor);
+	
+	for(i = 0; i < frames.size(); i++){
+		thrust.sort(dEdges.begin(),dEdges.end(),
+	}
+}
+/*__global__ void srm1(region* regions, edge* pairs, int w, int numOfPixels){
 	int x = blockDim.x*blockIdx.x+threadIdx.x;
 	int y = blockDim.y*blockIdx.y+threadIdx.y;
 	int i = w*y+x;
@@ -89,4 +114,4 @@ void srm2(region* regions, edge* pairs,int numOfPixels){
 			pairs[j].r2.numOfPixels +=  pairs[j].r1.numOfPixels;
 		}	
 	}
-}
+}*/

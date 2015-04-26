@@ -8,13 +8,13 @@ struct pixel {
 };
 
 struct frame {
-	thrust::device_vector<pixel> data;
+	thrust::device_vector<pixel>& data;
 	int height;
 	int width;
 }
 
 struct regions {
-	thrust::device_vector<unsigned int> regionNumbers;
+	thrust::device_vector<unsigned int>& regionNumbers;
 	int height;
 	int width;
 };
