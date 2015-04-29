@@ -14,37 +14,45 @@ bool Video::hasNext() {
 	return cap.read(currentFrame);
 }
 
-pixel *Video::next() {
-	pixel *pixels = new pixel[w * h];
-
+void Video::readPixels(pixel *storageLocation) {
 	for (int y = 0; y < h; y++) {
 		for (int x = 0; x < w; x++) {
-			pixels[3 * y + x].b =
+			storageLocation[3 * y + x].b =
 				currentFrame.data[currentFrame.channels()
 					*(currentFrame.cols * y + x) + 0];
-			pixels[3 * y + x].g =
+			storageLocation[3 * y + x].g =
 				currentFrame.data[currentFrame.channels()
 					*(currentFrame.cols * y + x) + 1];
-			pixels[3 * y + x].r =
+			storageLocation[3 * y + x].r =
 				currentFrame.data[currentFrame.channels()
 					*(currentFrame.cols * y + x) + 2];
 		}
 	}
-
-	return pixels;
 }
 
-thrust::host_vector<frame> Video::readNFrames(int frameCount) {
-	int i = 0;
-	thrust::host_vector<frame> frames(frameCount);
-	while (i < frameCount && this->hasNext()) {
-		pixel *pixels = this->next();
-		frames[i].pixelData = pixels;
-		frames[i].width = w;
-		frames[i].height = h;
+// The frames returned by this method will all point to the beginning of
+// the pixel array
+compactVideoRead Video::readNFrames(int frameCount) {
+	int currentFrame = 0;
+	unsigned int imageArea = w * h;
 
-		i++;
+	frame *frames = new frame[frameCount];
+	pixel *pixels = new pixel[frameCount * imageArea];
+
+	while (currentFrame < frameCount && this->hasNext()) {
+		this->readPixels(&pixels[currentFrame * imageArea]);
+
+		frames[currentFrame].pixelData = pixels;
+		frames[currentFrame].width = w;
+		frames[currentFrame].height = h;
+
+		currentFrame++;
 	}
 
-	return frames;
+	compactVideoRead result;
+	result.frames = frames;
+	result.pixels = pixels;
+	result.framesRead = currentFrame;
+
+	return result;
 }

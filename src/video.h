@@ -2,10 +2,15 @@
 #define __VIDEO_H__
 #include <string>
 #include <opencv2/opencv.hpp>
-#include <thrust/host_vector.h>
 #include <memory>
 
 #include "struct.h"
+
+struct compactVideoRead {
+	frame *frames;
+	pixel *pixels;
+	unsigned int framesRead;
+};
 
 using namespace std;
 
@@ -22,9 +27,9 @@ class Video {
 		int getWidth() { return w; }
 		int getFrameCount() { return currentFrameCount; }
 		bool hasNext();
-		pixel *next();
+		void readPixels(pixel *storageLocation);
 
 		// Attempts to read frameCount frames
-		thrust::host_vector<frame> readNFrames(int frameCount);
+		compactVideoRead readNFrames(int frameCount);
 };
 #endif

@@ -21,6 +21,13 @@ struct pixel {
 	unsigned char b;
 };
 
+inline std::ostream & operator<<(std::ostream &os, const pixel& p)
+{
+	os << "( " << ((int) p.r) << " , " << ((int) p.g)
+		<< " , " << ((int) p.b) << " )";
+	return os;
+}
+
 struct frame {
 	pixel *pixelData; // vector of pixels of size height * width * 3
 	int height;
