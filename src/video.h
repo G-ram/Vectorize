@@ -6,12 +6,6 @@
 
 #include "struct.h"
 
-struct compactVideoRead {
-	frame *frames;
-	pixel *pixels;
-	unsigned int framesRead;
-};
-
 using namespace std;
 
 class Video {
@@ -27,9 +21,10 @@ class Video {
 		int getWidth() { return w; }
 		int getFrameCount() { return currentFrameCount; }
 		bool hasNext();
-		void readPixels(pixel *storageLocation);
+		cv::Mat getNext();
 
 		// Attempts to read frameCount frames
-		compactVideoRead readNFrames(int frameCount);
+		std::vector<cv::Mat> readNFrames(int frameCount);
 };
 #endif
+

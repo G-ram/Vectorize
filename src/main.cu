@@ -1,58 +1,15 @@
 #include <stdio.h>
-#include <thrust/host_vector.h>
+#include <iostream>
 #include <thrust/device_vector.h>
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "SRMSeg.h"
 #include "video.h"
 #include "struct.h"
-// #include "srm.cuh"
 
-static const int FRAME_BATCH_SIZE = 100;
-
-compactVideoRead
-copyPictureDataToDev(frame *frames, pixel *pixels, unsigned int framesRead,
-	unsigned int imageSize)
-{
-	int i;
-	compactVideoRead devRead;
-	CUDA_CALL_SETUP;
-	pixel *devPixels;
-	frame *devFrames;
-
-	// Prints out the first pixel of each frame
-	// cout << *pixels << "\n";
-
-	CUDA_CALL(cudaMalloc((void**) &devPixels,
-		sizeof(pixel) * framesRead * imageSize),
-		"cudaMalloc failed - devPixels");
-
-	CUDA_CALL(cudaMemcpy(devPixels, pixels,
-		sizeof(pixel) * framesRead * imageSize, cudaMemcpyHostToDevice),
-		"cudaMemcpy failed - devPixels");
-
-	// Setup pointers to dev pixel data in frames
-	// before copying to frames to dev
-	for (i = 0; i < framesRead; i++) {
-		frames[i].pixelData = devPixels + i * imageSize;
-	}
-
-	CUDA_CALL(cudaMalloc((void**) &devFrames,
-		sizeof(frame) * framesRead),
-		"cudaMalloc failed - devFrames");
-
-	CUDA_CALL(cudaMemcpy(devFrames, frames,
-		sizeof(frame) * framesRead, cudaMemcpyHostToDevice),
-		"cudaMemcpy failed - devFrames");
-
-	devRead.pixels = devPixels;
-	devRead.frames = devFrames;
-
-	return devRead;
-
-Error:
-	cudaFree(devPixels);
-	cudaFree(devFrames);
-
-	exit(1);
-}
+static const int FRAME_BATCH_SIZE = 10;
+static const int Q = 45;
+static const int MIN_SIZE = 10;
 
 int main(int argc, char** argv ) {
 	if(argc != 2) {
@@ -61,19 +18,27 @@ int main(int argc, char** argv ) {
 	}
 
 	Video video = Video(argv[1]);
-
 	cout << "Reading from video file: " << argv[1] << "\n";
+
+	unsigned int i = 0;
+	unsigned int width = video.getWidth();
+	unsigned int height = video.getHeight();
+	SRMSeg srm(width,height);
+	std::vector<cv::Mat> labels(FRAME_BATCH_SIZE);
+	std::vector<unsigned int> hRegionFrame(width*height);
+	std::vector<unsigned int> hRegions;
 	while(video.hasNext()) {
-		unsigned int imageSize = video.getHeight() * video.getWidth();
-		compactVideoRead read = video.readNFrames(FRAME_BATCH_SIZE);
-		assert(read.framesRead > 0);
-		cout << read.framesRead << " frames read \n";
-
-		compactVideoRead devRead =
-			copyPictureDataToDev(read.frames, read.pixels, read.framesRead,
-				imageSize);
-
-		assert(devRead.frames != NULL);
+		cout << "---- reading another "<< FRAME_BATCH_SIZE << " frames ---- \n";
+		std::vector<cv::Mat> frames = video.readNFrames(FRAME_BATCH_SIZE);
+		for(i = 0; i < frames.size(); i++){
+			srm.segment(frames[i],Q,MIN_SIZE);
+			srm.getLabels(labels[i]);
+			cout << "frame " << i << " has "<< srm.getNumComps() << " components" << endl;
+			hRegionFrame.assign((unsigned int*)labels[i].datastart, (unsigned int*)labels[i].dataend);
+			hRegions.insert(hRegions.end(), hRegionFrame.begin(), hRegionFrame.end());
+		}
+		thrust::device_vector<unsigned int> regions(hRegions);
 	}
 	return 0;
 }
+
