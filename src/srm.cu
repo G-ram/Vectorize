@@ -2,116 +2,135 @@
 
 #define Q 32
 
-struct edge_functor(){
-	region currentRegion;
-	edge_functor(){}
-	__host__ __device__
-	edge operator()(const frame& frame, int idx){
-		return ;
+struct gen_regions: public thrust::unary_function<int,region>{
+	frame *currentFrame;
+	gen_regions(frame *_currentFrame){
+		currentFrame = _currentFrame;
 	}
-}
+	__device__ region operator()(const int& idx){
+		region tempRegion;
+		tempRegion.id = idx;
+		tempRegion.numOfPixels = 1;
+		tempRegion.avgR = (int)(*currentFrame).pixelData[idx].r;
+		tempRegion.avgG = (int)(*currentFrame).pixelData[idx].g;
+		tempRegion.avgG = (int)(*currentFrame).pixelData[idx].b;
+		return tempRegion;
+	}
+};
+
+struct gen_edges: public thrust::unary_function<int,edge>{
+	frame *currentFrame;
+	region *regions;
+	unsigned int w;
+	unsigned int h;
+	unsigned int inc;
+	gen_edges(frame *_currentFrame, region *_regions, unsigned int _w, unsigned int _h, unsigned int _inc){
+		currentFrame = _currentFrame;
+		regions = _regions;
+		w = _w;
+		h = _h;
+		inc = _inc;
+	}
+	__device__ unsigned int max3(int x, int y, int z){
+		unsigned int max = x >= y ? x : y;
+		return max >= z ? max : z;
+	}
+	__device__ edge operator()(const int& idx){
+		edge tempEdge;
+		if(idx + inc < w*h){
+			region r1 = regions[idx];
+			region r2 = regions[idx+inc];
+			tempEdge.r1 = idx;
+			tempEdge.r2 = idx+inc;
+			tempEdge.mag = max3(abs(r1.avgR-r2.avgR),abs(r1.avgG-r2.avgG),abs(r1.avgB-r2.avgB));
+		}else{
+			tempEdge.r1 = 0;
+			tempEdge.r2 = 0;
+			tempEdge.mag = -1.0;
+		}
+
+		return tempEdge;
+	}
+};
+
 struct sort_edges{
-	__host__ __device__
-	bool operator()(const edge& e1, const edge& e2) {
-		return e1.mag < e2.mag;
+	__device__ bool operator()(const edge& x, const edge& y){
+		return x.mag < y.mag;
+  	}
+};
+
+struct gen_labels: public thrust::unary_function<region,unsigned int>{
+	gen_labels(){}
+	__device__ unsigned int operator()(const region& currentRegion){
+		return currentRegion.id;
 	}
+};
+
+float max3(float x, float y, float z){
+	float max = x >= y ? x : y;
+	return max >= z ? max : z;
 }
-regions SRM(thrust::device_vector<frame> frames){
-	int i;
-	thrust::host_vector<thrust::raw_pointer<edge>> hEdges(frames.size());
-	for(i = 0; i < frames.size(); i++){
-		hEdges = thrust::raw_pointer_cast(new thrust::device_vector<edge>(2*frames[0].w*frames[0]).data();
-	}
-	thrust::device_vector<thrust::raw_pointer<edge>> dEdges = hEdges;
-	thrust::transform(frames.begin(),frames.end(),dEdges.begin,dEdges.end(),edge_functor);
-	
-	for(i = 0; i < frames.size(); i++){
-		thrust.sort(dEdges.begin(),dEdges.end(),
-	}
+
+bool mergeTest(edge currentEdge,thrust::host_vector<region> regions, std::vector<unsigned int> sizes, float delta){
+	region r1 = regions[currentEdge.r1];
+	region r2 = regions[currentEdge.r2];
+	unsigned int numRegionsWithPixels1 = sizes[r1.numOfPixels];
+	unsigned int numRegionsWithPixels2 = sizes[r2.numOfPixels];
+	float colorDiff = max3(fabs(r1.avgR-r2.avgR),fabs(r1.avgG-r2.avgG),fabs(r1.avgB-r2.avgB));
+	float bR1 = (1/(2*Q*r1.numOfPixels))*log(numRegionsWithPixels1/delta);
+	float bR2 = (1/(2*Q*r1.numOfPixels))*log(numRegionsWithPixels2/delta);
+	return colorDiff <= sqrt(bR1+bR2);
 }
-/*__global__ void srm1(region* regions, edge* pairs, int w, int numOfPixels){
-	int x = blockDim.x*blockIdx.x+threadIdx.x;
-	int y = blockDim.y*blockIdx.y+threadIdx.y;
-	int i = w*y+x;
-	if(i >= numOfPixels){return;}
-	pixel currentPixel = regions[i].rootPixel;
-	pixel eastPixel;
-	pixel southPixel;
-	if(i+1 < numOfPixels){
-		eastPixel = regions[i+1].rootPixel;
-		int magEast = max3(abs(currentPixel.r-eastPixel.r),
-					abs(currentPixel.g-eastPixel.g),
-					abs(currentPixel.b-eastPixel.b));
-		edge tempEdge = {regions[i],regions[i+1],magEast};
-		pairs[2*i] =  tempEdge;
-	}
-	if(i+w < numOfPixels){
-		southPixel = regions[i+w].rootPixel;
-		int magSouth = max3(abs(currentPixel.r-southPixel.r),
-					abs(currentPixel.g-southPixel.g),
-					abs(currentPixel.b-southPixel.b));
-		edge tempSouth = {regions[i],regions[i+w],magSouth};
-		pairs[2*i+1] = tempSouth;
-	}
-	__syncthreads();
-	int j = 0;
-	i *= 2;
-	//Some form of bubble sort
-	for(j = 0;j < numOfPixels;j++){
-		if(j%2 == 0){
-			if(pairs[i].mag > pairs[i+1].mag){
-				edge tempEdge = pairs[i];
-				pairs[i] = pairs[i+1];
-				pairs[i+1] = tempEdge;
-			}
-		}else if(i+1 < 2*numOfPixels-1){
-			if(pairs[i+1].mag > pairs[i+2].mag){
-				edge tempEdge = pairs[i+1];
-				pairs[i] = tempEdge;
+
+thrust::device_vector<unsigned int> SRM(frame* frames, int numOfFrames, int w, int h){
+	int size = w*h;
+	float delta = 1/(6*size*size);
+	thrust::device_vector<region> regions(size);
+	thrust::device_vector<unsigned int> idxs(size);
+	thrust::device_vector<edge> edges(2*size);
+	thrust::device_vector<unsigned int> labels(numOfFrames*size);
+	thrust::host_vector<region> hRegions(size);
+	thrust::host_vector<edge> hEdges(2*size);
+	std::vector<unsigned int> sizes(size+1);
+	sizes[size] = size;
+	thrust::sequence(idxs.begin(),idxs.end());
+	int i,j,k;
+	i = j = k = 0;
+	for(j = 0; j < numOfFrames; j++){
+		thrust::transform(idxs.begin(),idxs.end(),regions.begin(),gen_regions(frames+j));
+		thrust::transform(idxs.begin(),idxs.end(),edges.begin(),gen_edges(frames+j,thrust::raw_pointer_cast(regions.data()),w,h,1));
+		thrust::transform(idxs.begin(),idxs.end(),edges.begin()+size,gen_edges(frames+j,thrust::raw_pointer_cast(regions.data()),w,h,w));
+		thrust::sort(edges.begin(),edges.end(),sort_edges());
+		hRegions = regions;
+		hEdges = edges;
+		region r1, r2;
+		unsigned int totalPixels;
+		for(thrust::host_vector<edge>::iterator it = hEdges.begin(); it != hEdges.end(); it++){
+			i++;
+			if(mergeTest(hEdges[i],hRegions,sizes,delta)){ //merge O(n)
+				r1 = hRegions[hEdges[i].r1];
+				r2 = hRegions[hEdges[i].r2];
+				totalPixels = r1.numOfPixels+r2.numOfPixels;
+				sizes[totalPixels] += 1;
+				sizes[r1.numOfPixels] -= 1;
+				sizes[r2.numOfPixels] -= 1;
+				r2.avgR = (r1.numOfPixels/totalPixels)*r1.avgR+(r2.numOfPixels/totalPixels)*r2.avgR;
+				r2.avgG = (r1.numOfPixels/totalPixels)*r1.avgG+(r2.numOfPixels/totalPixels)*r2.avgB;
+				r2.avgB = (r1.numOfPixels/totalPixels)*r1.avgB+(r2.numOfPixels/totalPixels)*r2.avgG;
+				r2.numOfPixels = totalPixels;
+				for(thrust::host_vector<region>::iterator ik = hRegions.begin(); ik != hRegions.end(); ik++){
+					k++;
+					if(hRegions[k].id == r1.id || hRegions[k].id == r2.id){
+						hRegions[k] = r2;
+					}
+				}
 			}
 		}
-		__syncthreads();
+		regions = hRegions;
+		thrust::transform(regions.begin(),regions.end(),labels.begin()+j*size,gen_labels());
+		thrust::transform(idxs.begin(),idxs.end(),regions.begin(),gen_regions(frames+j));
 	}
+	return labels;
 }
 
-bool mergeTest(region regionA, region regionB,region* regions,int size){
-	float lowerCaseDelta = 1/(6*(float)(size*size));
-	int numRegsWithA = 0;
-	int numRegsWithB = 0;
-	int i;
-	for(i = 0; i < size; i++){
-		if(regions[i].numOfPixels == regionA.numOfPixels){numRegsWithA++;}
-		if(regions[i].numOfPixels == regionB.numOfPixels){numRegsWithB++;}
-	}
-	float maxAvgColorA = max3(regionA.avgR,regionA.avgG,regionA.avgB);
-	float maxAvgColorB = max3(regionB.avgR,regionB.avgG,regionB.avgB);
-	float bA = (1/(Q*regionA.numOfPixels*2))*log(numRegsWithA/lowerCaseDelta);
-	float bB = (1/(Q*regionB.numOfPixels*2))*log(numRegsWithB/lowerCaseDelta);
-	return fabs(maxAvgColorA-maxAvgColorB) <= bA*bA+bB*bB;
-}
 
-void srm2(region* regions, edge* pairs,int numOfPixels){
-	int j;
-	for(j = 0; j < numOfPixels*2;j++){
-		region r1 = pairs[j].r1;
-		region r2 = pairs[j].r2;
-		if(mergeTest(r1,r2,regions,numOfPixels) == true){
-			if(r1.numOfPixels >= r2.numOfPixels){
-				pairs[j].r1.child = &(pairs[j].r2);
-				pairs[j].r2.head = false;	
-			}else{
-				pairs[j].r2.child = &(pairs[j].r1);
-				pairs[j].r1.head = false;
-			}
-			int totalPixels = r1.numOfPixels + r2.numOfPixels;
-			pairs[j].r1.avgR = (r1.numOfPixels/totalPixels)*r1.avgR+(r2.numOfPixels/totalPixels)*r2.avgR;
-			pairs[j].r1.avgG = (r1.numOfPixels/totalPixels)*r1.avgG+(r2.numOfPixels/totalPixels)*r2.avgG;
-			pairs[j].r1.avgB = (r1.numOfPixels/totalPixels)*r1.avgB+(r2.numOfPixels/totalPixels)*r2.avgB;
-			pairs[j].r2.avgR = (r1.numOfPixels/totalPixels)*r1.avgR+(r2.numOfPixels/totalPixels)*r2.avgR;
-			pairs[j].r2.avgG = (r1.numOfPixels/totalPixels)*r1.avgG+(r2.numOfPixels/totalPixels)*r2.avgG;
-			pairs[j].r1.avgB = (r1.numOfPixels/totalPixels)*r1.avgB+(r2.numOfPixels/totalPixels)*r2.avgB;
-			pairs[j].r1.numOfPixels += pairs[j].r2.numOfPixels;
-			pairs[j].r2.numOfPixels +=  pairs[j].r1.numOfPixels;
-		}	
-	}
-}*/
