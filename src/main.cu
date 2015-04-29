@@ -6,6 +6,7 @@
 #include "SRMSeg.h"
 #include "video.h"
 #include "struct.h"
+#include "boundary.cuh"
 
 static const int FRAME_BATCH_SIZE = 10;
 static const int Q = 45;
@@ -16,6 +17,8 @@ int main(int argc, char** argv ) {
 		printf("usage: <Video path>\n");
 		return -1;
 	}
+
+	// testBoundary();
 
 	Video video = Video(argv[1]);
 	cout << "Reading from video file: " << argv[1] << "\n";
@@ -41,4 +44,3 @@ int main(int argc, char** argv ) {
 	}
 	return 0;
 }
-
