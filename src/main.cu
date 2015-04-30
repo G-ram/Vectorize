@@ -35,12 +35,13 @@ int main(int argc, char** argv ) {
 		std::vector<cv::Mat> frames = video.readNFrames(FRAME_BATCH_SIZE);
 		for(i = 0; i < frames.size(); i++){
 			srm.segment(frames[i],Q,MIN_SIZE);
-			srm.getLabels(labels[i]);
+			srm.getLabelsInt(labels[i]);
 			cout << "frame " << i << " has "<< srm.getNumComps() << " components" << endl;
 			hRegionFrame.assign((unsigned int*)labels[i].datastart, (unsigned int*)labels[i].dataend);
 			hRegions.insert(hRegions.end(), hRegionFrame.begin(), hRegionFrame.end());
 		}
 		thrust::device_vector<unsigned int> regions(hRegions);
+		thrust::device_vector<bool> edges = genSubpixelEdges(regions,height, width);
 	}
 	return 0;
 }
