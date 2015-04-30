@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <thrust/device_vector.h>
+#include <sys/time.h>
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "SRMSeg.h"
@@ -26,22 +27,36 @@ int main(int argc, char** argv ) {
 	unsigned int i = 0;
 	unsigned int width = video.getWidth();
 	unsigned int height = video.getHeight();
+	unsigned long totalFrames = 0;
 	SRMSeg srm(width,height);
 	std::vector<cv::Mat> labels(FRAME_BATCH_SIZE);
 	std::vector<unsigned int> hRegionFrame(width*height);
 	std::vector<unsigned int> hRegions;
+	bool hasOutput = false;
+
 	while(video.hasNext()) {
 		cout << "---- reading another "<< FRAME_BATCH_SIZE << " frames ---- \n";
 		std::vector<cv::Mat> frames = video.readNFrames(FRAME_BATCH_SIZE);
+		totalFrames += frames.size();
+
 		for(i = 0; i < frames.size(); i++){
 			srm.segment(frames[i],Q,MIN_SIZE);
 			srm.getLabelsInt(labels[i]);
-			cout << "frame " << i << " has "<< srm.getNumComps() << " components" << endl;
+
 			hRegionFrame.assign((unsigned int*)labels[i].datastart, (unsigned int*)labels[i].dataend);
 			hRegions.insert(hRegions.end(), hRegionFrame.begin(), hRegionFrame.end());
 		}
 		thrust::device_vector<unsigned int> regions(hRegions);
 		thrust::device_vector<bool> edges = genSubpixelEdges(regions,height, width);
+
+		if (!hasOutput) {
+			hasOutput = true;
+			cv::Mat edgesImg = convertEdges(edges, height, width);
+
+			imwrite("frame.png", edgesImg);
+		}
 	}
+	printf("%lu frames processed\n", totalFrames);
+
 	return 0;
 }

@@ -218,3 +218,20 @@ testBoundary()
 
     return 0;
 }
+
+cv::Mat
+convertEdges(thrust::device_vector<bool> edges, int height, int width)
+{
+    thrust::host_vector<bool> hostEdges = edges;
+
+    cv::Mat image(height * 2, width * 2, CV_8UC3, cv::Scalar(255, 255, 255));
+    for (int i = 0; i < width * 2; i++) {
+        for (int j = 0; j < height * 2; j++) {
+            if (hostEdges[j * width * 2 + i]) {
+                image.at<cv::Vec3b>(j, i) = cv::Vec3b(0,0,0);
+            }
+        }
+    }
+
+    return image;
+}

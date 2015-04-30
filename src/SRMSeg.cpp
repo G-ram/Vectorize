@@ -195,8 +195,8 @@ void SRMSeg :: segmentGraph(RegionPair* pairs, int numEdges)
 
     float logdelta = 2.0 * log ( 6.0 * this->width*this->height );
     float threshfactor = ( NUM_GRAY * NUM_GRAY ) / ( 2.0 * this->Q );
-    cout << "logdelta: " << logdelta << endl;
-    cout << "threshfactor: " << threshfactor << endl;
+    // cout << "logdelta: " << logdelta << endl;
+    // cout << "threshfactor: " << threshfactor << endl;
 
     // for each edge, in non-decreasing weight order...
     RegionPair* pair = 0;
